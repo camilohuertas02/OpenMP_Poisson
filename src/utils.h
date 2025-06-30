@@ -41,8 +41,6 @@ inline void initialize_grid(Grid& T, Grid& f) {
 
     for (int i = 1; i <= M; ++i) {
         for (int j = 1; j <= N; ++j) {
-            double x = i * dx;
-            double y = j * dy;
             // A common test function: f(x,y) = sin(pi*x) * sin(pi*y)
             // Or f(x,y) = 1.0 (constant source)
             // Or as specified in the problem: 2 * (x(1-x) + y(1-y))
