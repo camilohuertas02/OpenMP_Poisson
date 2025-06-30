@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# Script to run all Poisson solver versions and collect performance results.
+# Script mejorado para análisis de escalabilidad.
+# Ejecuta cada versión paralela con un número de hilos de 1 a MAX_THREADS.
 
 RESULTS_CSV="resultados.csv"
 BIN_DIR="bin"
-DATA_DIR="data"
+# Puedes cambiar este valor si tuvieras una máquina con más o menos núcleos
+MAX_THREADS=8
 
-echo "Starting the benchmark process..."
+echo "Starting the SCALABILITY benchmark process..."
 
 # --- Build Step ---
 echo "Cleaning and building all executables..."
@@ -17,89 +19,79 @@ if [ $? -ne 0 ]; then
 fi
 
 # --- CSV Header ---
-# Write header for the results file
-echo "Version,Directiva usada,Tiempo (s),Iteraciones,Observaciones" > $RESULTS_CSV
+# Añadimos una columna para el número de hilos
+echo "Version,Directiva usada,Num Hilos,Tiempo (s),Iteraciones,Observaciones" > $RESULTS_CSV
 
-# --- Execution and Data Collection ---
+# --- Definición de las Versiones a Probar ---
+# Usamos arrays para gestionar las versiones de forma más limpia
+declare -a EXECUTABLES=(
+    "poisson_serial"
+    "poisson_parallel_for"
+    "poisson_collapse"
+    "poisson_schedule"
+    "poisson_atomic"
+    "poisson_critical"
+    "poisson_task"
+)
+declare -a NAMES=(
+    "Secuencial"
+    "Paralelo (for)"
+    "Colapsado de bucles"
+    "Schedule (static)"
+    "Contador Atómico"
+    "Sección Crítica"
+    "Tareas (task)"
+)
+declare -a DIRECTIVES=(
+    "N/A"
+    "#pragma omp parallel for"
+    "collapse(2)"
+    "schedule(static)"
+    "atomic"
+    "critical"
+    "task"
+)
+
+# --- Bucle Principal de Ejecución ---
 echo "Running solvers and collecting results..."
 
-# Serial Version
-echo "Running Serial..."
-output=$(./$BIN_DIR/poisson_serial)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Serial finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Secuencial,N/A,$time,$iters," >> $RESULTS_CSV
+# Recorremos cada una de las versiones definidas en los arrays
+for i in "${!EXECUTABLES[@]}"; do
+    executable="${EXECUTABLES[$i]}"
+    name="${NAMES[$i]}"
+    directive="${DIRECTIVES[$i]}"
 
-# Parallel For Version
-echo "Running Parallel For..."
-output=$(./$BIN_DIR/poisson_parallel_for)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Parallel For finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Paralelo básico (for),#pragma omp parallel for,$time,$iters," >> $RESULTS_CSV
+    # El caso de la versión serial se ejecuta una sola vez (siempre es 1 hilo)
+    if [ "$executable" == "poisson_serial" ]; then
+        echo "Running Serial..."
+        output=$(./$BIN_DIR/$executable)
+        time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+        iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+        echo "$name finished. Time: $time s, Iterations: $iters"
+        echo "$name,$directive,1,$time,$iters," >> $RESULTS_CSV
+    else
+        # Para las versiones paralelas, hacemos un bucle de 1 a 8 hilos
+        for threads in $(seq 1 $MAX_THREADS); do
+            echo "Running $name with $threads thread(s)..."
+            
+            # ESTA ES LA LÍNEA CLAVE:
+            # Exportamos la variable de entorno para que OpenMP la lea.
+            export OMP_NUM_THREADS=$threads
+            
+            # Ejecutamos el programa y capturamos su salida
+            output=$(./$BIN_DIR/$executable)
+            time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+            iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+            
+            echo "$name with $threads thread(s) finished. Time: $time s, Iterations: $iters"
+            
+            # Guardamos la fila en el CSV, incluyendo el número de hilos
+            echo "$name,$directive,$threads,$time,$iters," >> $RESULTS_CSV
+        done
+    fi
+done
 
-# Collapse Version
-echo "Running Collapse..."
-output=$(./$BIN_DIR/poisson_collapse)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Collapse finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Colapsado de bucles,collapse(2),$time,$iters," >> $RESULTS_CSV
-
-# Sections Version
-echo "Running Sections..."
-output=$(./$BIN_DIR/poisson_sections)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Sections finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Inicialización en paralelo,sections,$time,$iters," >> $RESULTS_CSV
-
-# Schedule Static Version
-echo "Running Schedule Static..."
-output=$(./$BIN_DIR/poisson_schedule)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Schedule Static finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Control explícito,schedule(static),$time,$iters," >> $RESULTS_CSV
-
-# Atomic Version
-echo "Running Atomic..."
-output=$(./$BIN_DIR/poisson_atomic)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Atomic finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Contador Atómico,atomic,$time,$iters," >> $RESULTS_CSV
-
-# Critical Version
-echo "Running Critical..."
-output=$(./$BIN_DIR/poisson_critical)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Critical finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Sección Crítica,critical,$time,$iters," >> $RESULTS_CSV
-
-# Task Version
-echo "Running Task..."
-output=$(./$BIN_DIR/poisson_task)
-time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
-iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
-delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
-echo "Task finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
-echo "Paralelismo con Tareas,task,$time,$iters," >> $RESULTS_CSV
-
-# --- Completion Message ---
 echo "-----------------------------------------------------"
-echo "All solvers executed. Results collected in $RESULTS_CSV"
-echo "Data files saved in $DATA_DIR/"
-echo "-----------------------------------------------------"
-echo "To visualize the results, run: make plots"
-echo "The generated images will be in imag/"
 echo "Benchmark process completed."
+echo "Scalability results collected in $RESULTS_CSV"
+echo "-----------------------------------------------------"

@@ -22,7 +22,7 @@ int main() {
     double dy2 = dy * dy;
     double factor = 1.0 / (2.0 / dx2 + 2.0 / dy2);
 
-    omp_set_num_threads(8);
+//    omp_set_num_threads(8);
     auto start_time = std::chrono::high_resolution_clock::now();
 
     do {

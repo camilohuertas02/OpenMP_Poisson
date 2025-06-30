@@ -1,9 +1,0 @@
-Version,Directiva usada,Tiempo (s),Iteraciones,Observaciones
-Secuencial,N/A,4.352120,18876,
-Paralelo básico (for),#pragma omp parallel for,1.152791,18876,
-Colapsado de bucles,collapse(2),1.201706,18876,
-Inicialización en paralelo,sections,4.295235,18876,
-Control explícito,schedule(static),1.356004,18876,
-Contador Atómico,atomic,1.166586,18876,
-Sección Crítica,critical,1.327134,18876,
-Paralelismo con Tareas,task,1.557678,18876,

@@ -22,7 +22,7 @@ int main() {
     double dy2 = dy * dy;
     double factor = 1.0 / (2.0 / dx2 + 2.0 / dy2);
 
-    omp_set_num_threads(8);
+//    omp_set_num_threads(8);
     const int block_size = 32;
     const int num_blocks = (M + block_size - 1) / block_size;
     std::vector<double> block_deltas(num_blocks, 0.0);
