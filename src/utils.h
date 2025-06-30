@@ -36,9 +36,6 @@ inline void initialize_grid(Grid& T, Grid& f) {
     // Example source term: f(x,y) = 2 * (x(1-x) + y(1-y))
     // scaled to the domain [0,1]x[0,1] for physical coordinates
     // For grid indices [1..M] and [1..N]
-    double dx = 1.0 / (M + 1); // Step size in x
-    double dy = 1.0 / (N + 1); // Step size in y
-
     for (int i = 1; i <= M; ++i) {
         for (int j = 1; j <= N; ++j) {
             // A common test function: f(x,y) = sin(pi*x) * sin(pi*y)

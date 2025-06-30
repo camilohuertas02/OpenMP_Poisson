@@ -4,74 +4,55 @@
 #include <fstream>
 #include <string>
 #include <iomanip>
-#include <chrono> // For timing
-#include <omp.h>  // OpenMP library
-#include "utils.h" // Common utilities, Grid type, constants
+#include <chrono>
+#include <omp.h>
+#include "utils.h"
 
 int main() {
-    Grid T, T_new, f;
+    Grid T(M, std::vector<double>(N));
+    Grid T_new(M, std::vector<double>(N));
+    Grid f(M, std::vector<double>(N));
 
     // Initialize grids
     initialize_grid(T, f);
     T_new = T;
 
-    // Jacobi iteration parameters
     int iterations = 0;
-    double max_delta_iteration;
+    double max_delta;
 
-    // For calculating step sizes
-    double dx = 1.0 / (M + 1);
-    double dy = 1.0 / (N + 1);
-    double dx2 = dx * dx;
-    double dy2 = dy * dy;
-    double factor = 1.0 / (2.0 / dx2 + 2.0 / dy2);
-
-    // Start timer
+    omp_set_num_threads(8);
+    
     auto start_time = std::chrono::high_resolution_clock::now();
-    double global_max_delta = TOL + 1.0;
 
-    // Main Jacobi iteration loop
-    while (global_max_delta > TOL && iterations < MAX_ITER) {
-        max_delta_iteration = 0.0;
+    do {
+        max_delta = 0.0;
 
-        // Parallel update of interior points using OpenMP parallel for with collapse
-        // The loops over 'i' (rows) and 'j' (columns) are collapsed into a single parallel loop.
-        // Variables:
-        // T, f, T_new: shared by default.
-        // M, N, dx2, dy2, factor: shared, read-only.
-        // i, j: private by default in omp for with collapse.
-        // reduction(max:max_delta_iteration) for delta calculation.
-        #pragma omp parallel for collapse(2) reduction(max:max_delta_iteration) shared(T, T_new, f, M, N, dx2, dy2, factor)
-        for (int i = 1; i <= M; ++i) {
-            for (int j = 1; j <= N; ++j) {
-                // Store old value before update for delta calculation for this point
-                double T_old_ij = T[i][j];
+        // --- CALCULATION LOOP with collapse(2) ---
+        // The collapse(2) clause merges the two nested loops into a single, larger
+        // iteration space, giving OpenMP more flexibility to distribute work.
+        #pragma omp parallel for collapse(2) reduction(max:max_delta)
+        for (int i = 1; i < M - 1; ++i) {
+            for (int j = 1; j < N - 1; ++j) {
+                // Apply the finite difference formula
+                T_new[i][j] = 0.25 * (T[i+1][j] + T[i-1][j] + T[i][j+1] + T[i][j-1] - f[i][j]);
 
-                T_new[i][j] = factor * (
-                    (T[i-1][j] + T[i+1][j]) / dx2 +
-                    (T[i][j-1] + T[i][j+1]) / dy2 -
-                    f[i][j]
-                );
-                double current_diff = std::abs(T_new[i][j] - T_old_ij);
-                if (current_diff > max_delta_iteration) { // This updates the reduction variable
-                    max_delta_iteration = current_diff;
-                }
+                // CORRECCIÓN: Update max_delta directly. The reduction clause handles the rest.
+                max_delta = std::max(max_delta, std::abs(T_new[i][j] - T[i][j]));
             }
         }
-        global_max_delta = max_delta_iteration;
 
-        // Update T with T_new for the next iteration
-        // This copy can also be parallelized, possibly with collapse as well.
-        #pragma omp parallel for collapse(2) shared(T, T_new, M, N)
-        for (int i = 1; i <= M; ++i) {
-            for (int j = 1; j <= N; ++j) {
+        // --- COPY LOOP with collapse(2) ---
+        // This copy operation is also parallelized.
+        #pragma omp parallel for collapse(2)
+        for (int i = 1; i < M - 1; ++i) {
+            for (int j = 1; j < N - 1; ++j) {
                 T[i][j] = T_new[i][j];
             }
         }
-        iterations++;
-    }
 
-    // Stop timer
+        iterations++;
+    } while (max_delta > TOL && iterations < MAX_ITER);
+
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_time = end_time - start_time;
 
@@ -79,14 +60,9 @@ int main() {
     std::cout << std::fixed << std::setprecision(6);
     std::cout << "Time:" << elapsed_time.count() << std::endl;
     std::cout << "Iterations:" << iterations << std::endl;
-    std::cout << "Final_Delta:" << global_max_delta << std::endl;
+    std::cout << "Final_Delta:" << max_delta << std::endl;
 
-    // Save the final grid
     save_grid(T, "data/solucion_collapse.dat");
-
-    if (iterations == MAX_ITER && global_max_delta > TOL) {
-        // std::cerr << "Warning: Maximum iterations reached without convergence." << std::endl;
-    }
 
     return 0;
 }

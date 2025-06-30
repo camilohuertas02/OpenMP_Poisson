@@ -12,14 +12,14 @@ IMG_DIR = imag
 
 # List of source files (without .cpp extension)
 SOURCES = \
-    poisson_serial \
-    poisson_parallel_for \
-    poisson_collapse \
-    poisson_sections \
-    poisson_schedule \
-    poisson_atomic \
-    poisson_critical \
-    poisson_task
+	  poisson_serial \
+	  poisson_parallel_for \
+	  poisson_collapse \
+	  poisson_sections \
+	  poisson_schedule \
+	  poisson_atomic \
+	  poisson_critical \
+	  poisson_task
 
 EXECUTABLES = $(patsubst %,$(BIN_DIR)/%,$(SOURCES))
 
@@ -36,19 +36,21 @@ benchmark: all
 	@echo "Running benchmarks..."
 	@./run_all.sh
 
-# Target to generate plots
+# Target to generate plots using Gnuplot
 plots:
-	@echo "Generating plots..."
+	@echo "Generating plots with Gnuplot..."
 	@mkdir -p $(IMG_DIR)
 	@for dat_file in $(DATA_DIR)/*.dat; do \
-	    if [ -f "$$dat_file" ]; then \
-	        python3 visualize.py "$$dat_file"; \
-	    else \
-	        echo "No .dat files found in $(DATA_DIR) to generate plots."; \
-	        break; \
-	    fi \
-	done
+		if [ -f "$$dat_file" ]; then \
+		base_name=$$(basename $$dat_file .dat); \
+		gnuplot -e "datafile='$$dat_file'; outfile='$(IMG_DIR)/$$base_name.png'" visualize.gp; \
+		else \
+		echo "No .dat files found in $(DATA_DIR) to generate plots."; \
+		break; \
+		fi \
+		done
 	@echo "Plots saved in $(IMG_DIR)/"
+
 
 # Target to clean up
 clean:
