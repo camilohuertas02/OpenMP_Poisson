@@ -1,69 +1,105 @@
 #!/bin/bash
 
-# Ensure the script exits on any error
-set -e
+# Script to run all Poisson solver versions and collect performance results.
+
+RESULTS_CSV="resultados.csv"
+BIN_DIR="bin"
+DATA_DIR="data"
 
 echo "Starting the benchmark process..."
 
-# Clean previous build and data, then build all executables
+# --- Build Step ---
 echo "Cleaning and building all executables..."
-make clean
-make all
+make clean > /dev/null && make all
+if [ $? -ne 0 ]; then
+    echo "Build failed. Aborting benchmark."
+    exit 1
+fi
 
-# Create results directory if it doesn't exist (though data is top-level for .dat)
-mkdir -p data
-mkdir -p imag # visualize.py will save images here
+# --- CSV Header ---
+# Write header for the results file
+echo "Version,Directiva usada,Tiempo (s),Iteraciones,Observaciones" > $RESULTS_CSV
 
-# CSV Header
-HEADER="Version,Directiva,Tiempo (s),Iteraciones,Observaciones (Final Delta)"
-RESULTS_FILE="resultados.csv"
-echo "$HEADER" > "$RESULTS_FILE"
-
+# --- Execution and Data Collection ---
 echo "Running solvers and collecting results..."
 
-# Function to run a solver and parse its output
-run_and_parse() {
-    local executable_path=$1
-    local version_name=$2
-    local directive_name=$3 # e.g., "N/A", "parallel for", "collapse(2)"
+# Serial Version
+echo "Running Serial..."
+output=$(./$BIN_DIR/poisson_serial)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Serial finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Secuencial,N/A,$time,$iters," >> $RESULTS_CSV
 
-    echo "Running $version_name..."
+# Parallel For Version
+echo "Running Parallel For..."
+output=$(./$BIN_DIR/poisson_parallel_for)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Parallel For finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Paralelo básico (for),#pragma omp parallel for,$time,$iters," >> $RESULTS_CSV
 
-    # Execute and capture output
-    # The output is expected to be:
-    # Time:VALUE
-    # Iterations:VALUE
-    # Final_Delta:VALUE
-    output=$(./"$executable_path")
+# Collapse Version
+echo "Running Collapse..."
+output=$(./$BIN_DIR/poisson_collapse)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Collapse finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Colapsado de bucles,collapse(2),$time,$iters," >> $RESULTS_CSV
 
-    # Extract values using grep and cut
-    # Using awk for more robust parsing
-    time_s=$(echo "$output" | grep "Time:" | awk -F':' '{print $2}' | tr -d '[:space:]')
-    iterations=$(echo "$output" | grep "Iterations:" | awk -F':' '{print $2}' | tr -d '[:space:]')
-    final_delta=$(echo "$output" | grep "Final_Delta:" | awk -F':' '{print $2}' | tr -d '[:space:]')
+# Sections Version
+echo "Running Sections..."
+output=$(./$BIN_DIR/poisson_sections)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Sections finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Inicialización en paralelo,sections,$time,$iters," >> $RESULTS_CSV
 
-    # Append to CSV
-    echo "$version_name,$directive_name,$time_s,$iterations,$final_delta" >> "$RESULTS_FILE"
-    echo "$version_name finished. Time: $time_s s, Iterations: $iterations, Final Delta: $final_delta"
-}
+# Schedule Static Version
+echo "Running Schedule Static..."
+output=$(./$BIN_DIR/poisson_schedule)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Schedule Static finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Control explícito,schedule(static),$time,$iters," >> $RESULTS_CSV
 
-# Run each version
-run_and_parse "bin/poisson_serial" "Serial" "N/A"
-run_and_parse "bin/poisson_parallel_for" "Parallel For" "omp parallel for"
-run_and_parse "bin/poisson_collapse" "Collapse" "omp parallel for collapse(2)"
-run_and_parse "bin/poisson_sections" "Sections" "omp parallel sections"
-run_and_parse "bin/poisson_schedule" "Schedule Static" "omp parallel for schedule(static)" # Assuming schedule(static) is implemented
-run_and_parse "bin/poisson_atomic" "Atomic (Illustrative)" "omp parallel for" # Atomic is context-dependent, main parallel structure is for
-run_and_parse "bin/poisson_critical" "Critical (Illustrative)" "omp parallel for" # Critical is context-dependent, main parallel structure is for
-run_and_parse "bin/poisson_task" "Task" "omp task"
+# Atomic Version
+echo "Running Atomic..."
+output=$(./$BIN_DIR/poisson_atomic)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Atomic finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Contador Atómico,atomic,$time,$iters," >> $RESULTS_CSV
 
+# Critical Version
+echo "Running Critical..."
+output=$(./$BIN_DIR/poisson_critical)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Critical finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Sección Crítica,critical,$time,$iters," >> $RESULTS_CSV
+
+# Task Version
+echo "Running Task..."
+output=$(./$BIN_DIR/poisson_task)
+time=$(echo "$output" | grep "Time:" | cut -d':' -f2 | xargs)
+iters=$(echo "$output" | grep "Iterations:" | cut -d':' -f2 | xargs)
+delta=$(echo "$output" | grep "Final_Delta:" | cut -d':' -f2 | xargs)
+echo "Task finished. Time: $time s, Iterations: $iters, Final Delta: $delta"
+echo "Paralelismo con Tareas,task,$time,$iters," >> $RESULTS_CSV
+
+# --- Completion Message ---
 echo "-----------------------------------------------------"
-echo "All solvers executed. Results collected in $RESULTS_FILE"
-echo "Data files saved in data/"
+echo "All solvers executed. Results collected in $RESULTS_CSV"
+echo "Data files saved in $DATA_DIR/"
 echo "-----------------------------------------------------"
-
-# Optional: Suggest next steps
 echo "To visualize the results, run: make plots"
 echo "The generated images will be in imag/"
 echo "Benchmark process completed."
-chmod +x Taller_OpenMP_Poisson/run_all.sh

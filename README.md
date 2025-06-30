@@ -1,81 +1,95 @@
-# Taller OpenMP: 2D Poisson Solver
+# Taller OpenMP: Solucionador de la Ecuación de Poisson 2D
 
-This project implements a 2D Poisson equation solver using the Jacobi iterative method. It provides several C++ versions, from serial to various OpenMP parallelization strategies. Python scripts are included for results aggregation and visualization.
+Este proyecto implementa un solucionador para la ecuación de Poisson en 2D usando el método iterativo de Jacobi. Proporciona varias versiones en C++, desde una implementación serial hasta diversas estrategias de paralelización con OpenMP. Se incluyen scripts para la automatización de pruebas y la visualización de resultados con Gnuplot.
 
-## Project Structure
+## Estructura del Proyecto
 
 ```
-Taller_OpenMP_Poisson/
-├── Makefile                  # Manages compilation, execution, and cleanup
-├── README.md                 # This file
-├── run_all.sh                # Executes all solvers and collects performance data
-├── visualize.py              # Generates heatmaps from solution data
-├── data/                     # Directory for solution (.dat) files (created by solvers)
-├── src/                      # C++ source files
-│   ├── utils.h               # Common utilities, constants, and Grid definition
-│   ├── poisson_serial.cpp    # Serial version
-│   ├── poisson_parallel_for.cpp # OpenMP parallel for version
-│   ├── poisson_collapse.cpp  # OpenMP collapse clause version
-│   ├── poisson_sections.cpp  # OpenMP sections version
-│   ├── poisson_schedule.cpp  # OpenMP schedule clause version
-│   ├── poisson_atomic.cpp    # OpenMP parallel for (illustrative atomic usage context)
-│   ├── poisson_critical.cpp  # OpenMP parallel for (illustrative critical usage context)
-│   └── poisson_task.cpp      # OpenMP task-based version
-├── imag/                     # Directory for output images (.png) (created by visualize.py)
+
+Taller\_OpenMP\_Poisson/
+├── Makefile                     \# Gestiona la compilación, ejecución y limpieza
+├── README.md                      \# Este archivo
+├── run\_all.sh                     \# Ejecuta todos los solucionadores y recolecta datos de rendimiento
+├── visualize.gp                   \# Script de Gnuplot para generar mapas de calor
+├── data/                          \# Directorio para los archivos de solución (.dat)
+├── src/                           \# Archivos fuente de C++
+│   ├── utils.h                    \# Utilidades comunes, constantes y definición de la Grilla
+│   ├── poisson\_serial.cpp         \# Versión Serial
+│   ├── poisson\_parallel\_for.cpp   \# Versión con OpenMP parallel for
+│   ├── poisson\_collapse.cpp     \# Versión con la cláusula collapse de OpenMP
+│   ├── poisson\_sections.cpp     \# Versión con la directiva sections de OpenMP
+│   ├── poisson\_schedule.cpp     \# Versión con la cláusula schedule de OpenMP
+│   ├── poisson\_atomic.cpp       \# Versión para ilustrar el uso de atomic
+│   ├── poisson\_critical.cpp     \# Versión para ilustrar el uso de critical
+│   └── poisson\_task.cpp         \# Versión basada en tareas de OpenMP
+├── imag/                          \# Directorio para las imágenes de salida (.png)
 ├── actividades/
-│   └── Informe_de_Resultados.md # Template for results report
-└── bin/                      # Directory for compiled executables (created by Makefile)
-```
+│   └── Informe\_de\_Resultados.md   \# Plantilla para el informe de resultados
+└── bin/                           \# Directorio para los ejecutables compilados
 
-## Prerequisites
+````
 
-*   A C++ compiler supporting C++17 and OpenMP (e.g., `g++`)
-*   Python 3 with `numpy` and `matplotlib` libraries.
-    *   Install them using pip: `pip install numpy matplotlib`
+## Requisitos Previos
 
-## How to Use
+* Un compilador de C++ con soporte para C++17 y OpenMP (ej. `g++`).
+* El programa `gnuplot` instalado en el sistema.
+    * En sistemas basados en Debian/Ubuntu como el tuyo, se puede instalar con:
+        ```bash
+        sudo apt-get update && sudo apt-get install gnuplot
+        ```
 
-### 1. Compile
-To compile all C++ solver versions:
+## Modo de Uso
+
+### 1. Compilar
+Para compilar todas las versiones del solucionador en C++:
 ```bash
 make all
-```
-This will create the executables in the `bin/` directory.
+````
 
-### 2. Run Benchmarks
-To execute all solvers, collect their performance data, and generate `resultados.csv`:
+Esto creará los archivos ejecutables en el directorio `bin/`.
+
+### 2\. Ejecutar Pruebas (Benchmark)
+
+Para ejecutar todos los solucionadores, recolectar sus datos de rendimiento y generar el archivo `resultados.csv`:
+
 ```bash
 make benchmark
 ```
-This command first compiles everything (if not already done), then runs the `run_all.sh` script. The `resultados.csv` file will contain execution time, iterations, and other metrics for each version.
 
-### 3. Generate Plots
-After running the solvers (e.g., via `make benchmark` or by running individual executables from `bin/`), solution files (`.dat`) will be generated in the `data/` directory.
+Este comando primero compila todo el proyecto (si no ha sido compilado antes) y luego ejecuta el script `run_all.sh`. El archivo `resultados.csv` contendrá el tiempo de ejecución, número de iteraciones y otras métricas para cada versión.
 
-To generate heatmap visualizations from these `.dat` files:
+### 3\. Generar Gráficos
+
+Después de ejecutar los solucionadores (por ejemplo, con `make benchmark`), se habrán generado archivos de solución (`.dat`) en el directorio `data/`.
+
+Para generar las visualizaciones en forma de mapa de calor a partir de estos archivos:
+
 ```bash
 make plots
 ```
-This will execute the `visualize.py` script for each `.dat` file found in `data/` and save the resulting PNG images in the `imag/` directory.
 
-If you want to visualize a specific solution file:
+Este comando ejecutará el script `visualize.gp` para cada archivo `.dat` encontrado en `data/` y guardará las imágenes PNG resultantes en el directorio `imag/`.
+
+Si quieres visualizar un archivo de solución específico:
+
 ```bash
-python3 visualize.py data/solucion_serial.dat
+gnuplot -e "datafile='data/solucion_serial.dat'; outfile='imag/solucion_serial.png'" visualize.gp
 ```
-(Replace `solucion_serial.dat` with the desired data file.)
 
-### 4. Clean Up
-To remove all compiled files, generated data, images, and the results CSV:
+(Reemplaza `solucion_serial.dat` con el archivo de datos que desees visualizar).
+
+### 4\. Limpiar
+
+Para eliminar todos los archivos compilados, datos generados, imágenes y el archivo de resultados:
+
 ```bash
 make clean
 ```
 
-## Output Files
+## Archivos de Salida
 
-*   `bin/*`: Compiled executable files.
-*   `data/*.dat`: Raw data files representing the solved temperature grid for each version.
-*   `imag/*.png`: Heatmap images generated by `visualize.py`.
-*   `resultados.csv`: CSV file summarizing the performance (time, iterations) of each solver version.
+  * `bin/*`: Archivos ejecutables compilados.
+  * `data/*.dat`: Archivos de datos en crudo que representan la grilla de potencial calculada para cada versión.
+  * `imag/*.png`: Imágenes de mapas de calor generadas por `visualize.gp`.
+  * `resultados.csv`: Archivo CSV que resume el rendimiento (tiempo, iteraciones) de cada versión del solucionador.
 
-## Report
-A template for the results report can be found in `actividades/Informe_de_Resultados.md`. The main findings should be based on the data collected in `resultados.csv`.
